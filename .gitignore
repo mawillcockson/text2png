@@ -1,0 +1,8 @@
+output/
+*.png
+*.txt
+
+saved.code-workspace
+.vscode/
+
+__pycache__/

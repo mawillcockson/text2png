@@ -1,0 +1,10 @@
+[packages]
+pillow = "*"
+invoke = "*"
+matplotlib = "*"
+
+[dev-packages]
+black = "*"
+
+[pipenv]
+allow_prereleases = true
