@@ -1,6 +1,7 @@
 output/
 *.png
 *.txt
+!LICENSE.txt
 
 saved.code-workspace
 .vscode/

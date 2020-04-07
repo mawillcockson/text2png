@@ -196,7 +196,7 @@ if __name__ == "__main__":
         "--size",
         type=parse_size,
         default=default_canvas_size,
-        help="Size to make all character images",
+        help="Size in pixels to make all character images (e.g. 500x500)",
     )
     parser.add_argument(
         "--padding",
