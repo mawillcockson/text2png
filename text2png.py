@@ -24,6 +24,12 @@ default_background = "white"
 default_text_color = "black"
 
 
+# Regexes
+size_re = re_compile(r"^(?P<width>\d+)x(?P<height>\d+)$")
+comment_re = re_compile(r"^\s*(#|＃).*$")
+blank_re = re_compile(r"^\s+$")
+
+
 def assign_path(text: str, dir: Union[Path, str]) -> Path:
     proper_dir = Path(dir)
     if proper_dir.exists() and not proper_dir.is_dir():
@@ -77,8 +83,12 @@ def generate_png(
     )
     draw.text(xy=text_position, text=text, fill=fill_color, font=font)
     # Draws a circle to show text_position
-    #draw.ellipse(xy=[text_position.x-3,text_position.y-3,text_position.x+3,text_position.y+3], fill="black")
+    # draw.ellipse(xy=[text_position.x-3,text_position.y-3,text_position.x+3,text_position.y+3], fill="black")
     return canvas
+
+
+def comment_or_blank(string: str) -> bool:
+    return comment_re.search(string) or blank_re.search(string) or string == ""
 
 
 def get_lines(text_file: Union[Path, str]) -> List[str]:
@@ -87,16 +97,14 @@ def get_lines(text_file: Union[Path, str]) -> List[str]:
     text_path = Path(text_file)
     if not text_path.is_file():
         raise Exception(f"'{text_path}' is not a file")
-    comment_or_empty = re_compile(r"^(\s*#.*)|(\s+)$")
     return [
         line
         for line in text_path.read_text(encoding="utf-8").splitlines()
-        if line and (not comment_or_empty.search(line))
+        if not comment_or_blank(line)
     ]
 
 
 def parse_size(size: str) -> Size:
-    size_re = re_compile(r"^(?P<width>\d+)x(?P<height>\d+)$")
     match = size_re.match(size)
     if not match:
         raise ArgumentTypeError(f"Bad size specification: {size}")
