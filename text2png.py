@@ -7,15 +7,22 @@ from functools import reduce
 from numbers import Number
 from pathlib import Path
 from re import compile as re_compile
-from typing import List, NamedTuple, NewType, Optional, Tuple, Union
+from typing import List, NamedTuple, NewType, Optional, Tuple, Union, Dict
 from warnings import warn
 
 from matplotlib.font_manager import FontProperties, findfont
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 from PIL.ImageColor import getrgb
 
-Size = NamedTuple("Size", width=Number, height=Number)
-Position = NamedTuple("Position", x=Number, y=Number)
+Num = Union[int, float]
+class Size(NamedTuple):
+    width: Num
+    height: Num
+
+class Position(NamedTuple):
+    x: Num
+    y: Num
+
 
 default_font = "KanjiStrokeOrders"
 default_output_dir = Path("./output")
@@ -73,7 +80,7 @@ def generate_png(
     text: str,
     font: ImageFont,
     canvas_size: Size,
-    padding: int,
+    padding: Num,
     background: ImageColor,
     fill_color: ImageColor,
 ) -> Image:
@@ -90,15 +97,15 @@ def generate_png(
 
 
 def comment_or_blank(string: str) -> bool:
-    return comment_re.search(string) or blank_re.search(string) or string == ""
+    return bool(comment_re.search(string) or blank_re.search(string) or string == "")
 
 
-def check_collisions(lines: List[str], directory: Union[Path, str]) -> dict:
+def check_collisions(lines: List[str], directory: Union[Path, str]) -> Dict[str, Path]:
     dir_path = Path(directory)
     if not (dir_path.is_dir() and dir_path.exists()):
         raise ValueError(f"'{dir_path}' must be a directory")
     dir_contents = list(dir_path.iterdir())
-    non_files = filter(lambda f: not f.is_file(), dir_contents)
+    non_files = [str(path) for path in filter(lambda f: not f.is_file(), dir_contents)]
     colliding_names = [line for line in lines if (line + ".png") in non_files]
     for line in colliding_names:
         logging.error(
@@ -161,8 +168,8 @@ def get_max_text_size(lines: List[str], font: str) -> Size:
 def get_font(
     lines: List[str],
     canvas_size: Size,
-    padding: int,
-    font_name: Optional[str] = default_font,
+    padding: Num,
+    font_name: str = default_font,
 ) -> ImageFont:
     max_text_size = get_max_text_size(lines=lines, font=font_name)
     if max_text_size.height <= 0 or max_text_size.width <= 0:
@@ -256,7 +263,7 @@ if __name__ == "__main__":
 
         return dir
 
-    def parse_log_level(level: str) -> str:
+    def parse_log_level(level: str) -> int:
         levels = {
             "critical": logging.CRITICAL,
             "error": logging.ERROR,
