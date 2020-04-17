@@ -23,6 +23,10 @@ Install [`pipenv`](https://github.com/pypa/pipenv):
 python -m pip install --user -U pipenv
 ```
 
+[Download](https://github.com/mawillcockson/text2png/archive/master.zip) this repository, or [install git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) and then [clone this repository](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository).
+
+The instructions for the latter option are platform specific, and the links contain information specific to macOS, Windows, and Linux. Android can use [Termux](https://termux.com/) to follow along with the Linux instructions.
+
 Have `pipenv` install required packages:
 
 ```sh
@@ -34,6 +38,8 @@ Start a session with a `python` that has access to those packages:
 ```sh
 pipenv shell --fancy
 ```
+
+The above step is important, as running `pipenv run python` has caused some issues in the past, with files, upon being read, seeming to contain garbled data.
 
 Show the help for this script:
 
