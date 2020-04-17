@@ -5,6 +5,7 @@ matplotlib = "*"
 
 [dev-packages]
 black = "*"
+mypy = "*"
 
 [pipenv]
 allow_prereleases = true

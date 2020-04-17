@@ -56,7 +56,7 @@ def assign_path(text: str, dir: Union[Path, str]) -> Path:
             "Filesystem error likely prevented using a particular filename"
         ) from err
 
-    return proper_path.resolve()
+    return proper_path.expanduser().resolve()
 
 
 def center_text_position(
