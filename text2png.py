@@ -9,9 +9,11 @@ from pathlib import Path
 from re import compile as re_compile
 from typing import List, NamedTuple, NewType, Optional, Tuple, Union, Dict
 from warnings import warn
+import atexit
 
 from matplotlib.font_manager import FontProperties, findfont
-from PIL import Image, ImageColor, ImageDraw, ImageFont
+from PIL import Image, ImageColor, ImageDraw
+from PIL.ImageFont import ImageFont, truetype as PILtruetype
 from PIL.ImageColor import getrgb
 
 Num = Union[int, float]
@@ -177,7 +179,7 @@ def parse_size(size: str) -> Size:
 def get_max_text_size(lines: List[str], font: str) -> Size:
     """Return the approximate size in pixels of the smallest bounding box that can enclose every line of text at a font size of 1pt"""
     font_file = findfont(font)
-    font_image = ImageFont.truetype(font_file, size=1000)
+    font_image = PILtruetype(font_file, size=1000)
     text_sizes = map(font_image.getsize, lines)
     tuple_max = lambda a, b: Size(max(a[0], b[0]), max(a[1], b[1]))
     max_size_at_1000 = reduce(tuple_max, text_sizes, Size(0, 0))
@@ -191,7 +193,7 @@ def get_font(
     if max_text_size.height <= 0 or max_text_size.width <= 0:
         logging.warn("No text will be drawn")
         font_file = findfont(font_name)
-        return ImageFont.truetype(font_file, size=1)
+        return PILtruetype(font_file, size=1)
 
     usable_width = canvas_size.width - padding * canvas_size.width
     usable_height = canvas_size.height - padding * canvas_size.height
@@ -207,7 +209,7 @@ def get_font(
     # NOTE: Subtracting 1 because getsize(text) rounds up
     font_size = math.floor(min(max_font_size_height, max_font_size_width)) - 1
     font_file = findfont(font_name)
-    font_image = ImageFont.truetype(font_file, size=font_size)
+    font_image = PILtruetype(font_file, size=font_size)
     return font_image
 
 
@@ -237,6 +239,7 @@ def main(
     clobber: bool = False,
 ) -> List[Path]:
     setup_logging(level=log_level)
+    raise error("Oops, can't; sorry")
 
     if isinstance(size, Size):
         canvas_size = size
@@ -373,18 +376,17 @@ if __name__ == "__main__":
         help="Verbosity/log level",
     )
 
+    atexit.register(print, parser.format_help())
+
     args = parser.parse_args()
-    try:
-        main(
-            file_or_list=args.file,
-            output_dir=args.output_dir,
-            log_level=args.log,
-            font=args.font,
-            size=args.size,
-            padding=args.padding,
-            background=args.background,
-            text_color=args.text_color,
-            clobber=args.clobber,
-        )
-    except Exception as err:
-        parser.print_help()
+    main(
+        file_or_list=args.file,
+        output_dir=args.output_dir,
+        log_level=args.log,
+        font=args.font,
+        size=args.size,
+        padding=args.padding,
+        background=args.background,
+        text_color=args.text_color,
+        clobber=args.clobber,
+    )
