@@ -15,9 +15,14 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont
 from PIL.ImageColor import getrgb
 
 Num = Union[int, float]
+LogLevel = Optional[Union[int, str, bool]]
+SPath = Union[str, Path]
+
+
 class Size(NamedTuple):
     width: Num
     height: Num
+
 
 class Position(NamedTuple):
     x: Num
@@ -30,7 +35,7 @@ default_canvas_size = Size(1024, 1024)
 default_padding = 0.10
 default_background = "white"
 default_text_color = "black"
-default_log_level = logging.WARNING
+default_log_level: LogLevel = logging.WARNING
 
 
 # Regexes
@@ -96,52 +101,66 @@ def generate_png(
     return canvas
 
 
-def comment_or_blank(string: str) -> bool:
-    return bool(comment_re.search(string) or blank_re.search(string) or string == "")
+def not_comment_or_blank(string: str) -> bool:
+    return not bool(
+        comment_re.search(string) or blank_re.search(string) or string == ""
+    )
 
 
-def check_collisions(lines: List[str], directory: Union[Path, str]) -> Dict[str, Path]:
+def which_exist(names: List[str], directory: Union[Path, str]) -> Dict[str, Path]:
+    """Checks which file names are already taken in a directory,
+    and raises an error if it wasn't a file that took the name"""
     dir_path = Path(directory)
     if not (dir_path.is_dir() and dir_path.exists()):
         raise ValueError(f"'{dir_path}' must be a directory")
     dir_contents = list(dir_path.iterdir())
     non_files = [str(path) for path in filter(lambda f: not f.is_file(), dir_contents)]
-    colliding_names = [line for line in lines if (line + ".png") in non_files]
-    for line in colliding_names:
+    colliding_names = [name for name in names if name in non_files]
+    for name in colliding_names:
         logging.error(
-            f"'{line}.png' can't be created because there's something that's not a picture in the directory '{directory}' that already has that name"
+            f"'{name}' can't be created because there's something that's not a picture in the directory '{directory}' that already has that name"
         )
     if colliding_names:
         colliding_list = "\n".join(colliding_names)
         raise FileExistsError(
             f"These are names of files that would be created in '{directory}', but can't:\n{colliding_list}"
         )
-    return {file.stem: file for file in dir_contents}
+    return {file.name: file for file in dir_contents}
 
 
-def get_lines(text_file: Union[Path, str], directory: Path, clobber: bool) -> List[str]:
+def get_characters(
+    text_file_or_list: Union[Path, str, List[str]], directory: SPath, clobber: bool
+) -> List[str]:
     """Returns a list of the lines from a file that aren't empty, and don't
-    have a '#' as the first non-whitespace character"""
-    text_path = Path(text_file)
-    if not text_path.is_file():
-        raise Exception(f"'{text_path}' is not a file")
-    lines = [
-        line
-        for line in text_path.read_text(encoding="utf-8").splitlines()
-        if not comment_or_blank(line)
-    ]
+    have a '#' as the first non-whitespace character
+    Alternatively, takes a list of strings"""
+    if isinstance(text_file_or_list, list):
+        lines = text_file_or_list
+    elif isinstance(text_file_or_list, str) or isinstance(text_file_or_list, Path):
+        text_path = Path(text_file_or_list)
+        if not text_path.is_file():
+            raise Exception(f"'{text_path}' is not a file")
+        lines = text_path.read_text().splitlines()
+    else:
+        raise TypeError(
+            f"text_file_or_list must be a path or list of characters; got:\n{text_file_or_list}"
+        )
+
+    characters = list(filter(not_comment_or_blank, lines))
     # Check to see if any lines clash with existing directory or non-file names
-    dir_contents = check_collisions(lines=lines, directory=directory)
+    dir_contents = which_exist(
+        names=[character + ".png" for character in characters], directory=directory
+    )
     # If we're clobbering, don't filter; otherwise, remove any lines that already have pictures generated
     if clobber:
-        filtered_lines = lines
+        filtered_lines = characters
     else:
-        unique_lines = set(lines)
+        unique_characters = set(characters)
         dir_set = set(dir_contents.keys())
-        for line in unique_lines & dir_set:
+        for line in unique_characters & dir_set:
             logging.info(f"Not clobbering '{line}.png'")
 
-        filtered_lines = list(unique_lines - dir_set)
+        filtered_lines = list(unique_characters - dir_set)
 
     return filtered_lines
 
@@ -166,10 +185,7 @@ def get_max_text_size(lines: List[str], font: str) -> Size:
 
 
 def get_font(
-    lines: List[str],
-    canvas_size: Size,
-    padding: Num,
-    font_name: str = default_font,
+    lines: List[str], canvas_size: Size, padding: Num, font_name: str = default_font,
 ) -> ImageFont:
     max_text_size = get_max_text_size(lines=lines, font=font_name)
     if max_text_size.height <= 0 or max_text_size.width <= 0:
@@ -195,50 +211,85 @@ def get_font(
     return font_image
 
 
-def setup_logging(args: Optional[Namespace] = None) -> None:
-    if not args:
-        return logging.basicConfig(format="%(message)s", level=logging.WARNING)
+def setup_logging(level: Optional[LogLevel] = default_log_level) -> None:
+    if level == False:
+        return None
+    elif not level:
+        logging.basicConfig(format="%(message)s", level=default_log_level)
+    else:
+        logging.basicConfig(format="%(message)s", level=level)
 
-    return logging.basicConfig(format="%(message)s", level=args.log)
+
+def error(message: str) -> Exception:
+    logging.error(message)
+    return Exception(message)
 
 
-def main(args: Namespace,) -> None:
-    setup_logging(args)
+def main(
+    file_or_list: Union[SPath, List[str]],
+    output_dir: SPath = default_output_dir,
+    log_level: Optional[LogLevel] = default_log_level,
+    font: Union[str, ImageFont] = default_font,
+    size: Union[str, Size] = default_canvas_size,
+    padding: Union[str, Num] = default_padding,
+    background: str = default_background,
+    text_color: str = default_text_color,
+    clobber: bool = False,
+) -> List[Path]:
+    setup_logging(level=log_level)
 
-    font: str = args.font
+    if isinstance(size, Size):
+        canvas_size = size
+    else:
+        canvas_size = parse_size(size)
 
-    canvas_size: Size = args.size
+    try:
+        pad = float(padding)
+    except ValueError as err:
+        raise error(
+            f"Expected padding format to be like '0.1', instead got '{padding}'"
+        )
 
-    padding: float = args.padding
+    output_directory = Path(output_dir)
 
-    text_color: str = args.text_color
+    if not output_directory.exists():
+        try:
+            output_directory.mkdir()
+        except Exception as err:
+            raise error(f"Can't make directory '{output_directory}'")
 
-    background_color = getrgb(color=args.background)
-
-    fill_color = getrgb(color=args.text_color)
-
-    lines = get_lines(
-        text_file=args.file, directory=args.output_dir, clobber=args.clobber
+    lines = get_characters(
+        text_file_or_list=file_or_list, directory=output_dir, clobber=clobber
     )
+
     if not lines:
         logging.info("No pictures will be generated")
-        return
+        return list()
 
-    image_font = get_font(
-        lines=lines, canvas_size=canvas_size, padding=padding, font_name=font
-    )
+    if isinstance(font, ImageFont):
+        image_font = font
+    else:
+        image_font = get_font(
+            lines=lines, canvas_size=canvas_size, padding=pad, font_name=font
+        )
+
+    background_color = getrgb(color=background)
+
+    fill_color = getrgb(color=text_color)
 
     for text in lines:
         generate_png(
             text=text,
             font=image_font,
             canvas_size=canvas_size,
-            padding=padding,
+            padding=pad,
             background=background_color,
             fill_color=fill_color,
         ).save(
-            fp=assign_path(text=text, dir=args.output_dir), format="PNG",
+            fp=assign_path(text=text, dir=output_dir), format="PNG",
         )
+
+    return [output_directory / (f"{line}.png") for line in lines]
 
 
 if __name__ == "__main__":
@@ -322,4 +373,18 @@ if __name__ == "__main__":
         help="Verbosity/log level",
     )
 
-    main(args=parser.parse_args())
+    args = parser.parse_args()
+    try:
+        main(
+            file_or_list=args.file,
+            output_dir=args.output_dir,
+            log_level=args.log,
+            font=args.font,
+            size=args.size,
+            padding=args.padding,
+            background=args.background,
+            text_color=args.text_color,
+            clobber=args.clobber,
+        )
+    except Exception as err:
+        parser.print_help()
