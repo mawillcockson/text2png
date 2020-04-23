@@ -231,29 +231,31 @@ def main(
     file_or_list: Union[SPath, List[str]],
     output_dir: SPath = default_output_dir,
     log_level: Optional[LogLevel] = default_log_level,
-    font: Union[str, ImageFont] = default_font,
-    size: Union[str, Size] = default_canvas_size,
-    padding: Union[str, Num] = default_padding,
-    background: str = default_background,
-    text_color: str = default_text_color,
-    clobber: bool = False,
+    font: Optional[Union[str, ImageFont]] = default_font,
+    size: Optional[Union[str, Size]] = default_canvas_size,
+    padding: Optional[Union[str, Num]] = default_padding,
+    background: Optional[str] = default_background,
+    text_color: Optional[str] = default_text_color,
+    clobber: Optional[bool] = False,
 ) -> List[Path]:
     setup_logging(level=log_level)
-    raise error("Oops, can't; sorry")
 
-    if isinstance(size, Size):
+    if not size:
+        canvas_size = default_canvas_size
+    elif isinstance(size, Size):
         canvas_size = size
     else:
         canvas_size = parse_size(size)
 
+    padding_or_default = default_padding if padding == None else padding
     try:
-        pad = float(padding)
+        pad = float(padding_or_default)
     except ValueError as err:
         raise error(
             f"Expected padding format to be like '0.1', instead got '{padding}'"
         )
 
-    output_directory = Path(output_dir)
+    output_directory = Path(output_dir or default_output_dir)
 
     if not output_directory.exists():
         try:
@@ -262,7 +264,9 @@ def main(
             raise error(f"Can't make directory '{output_directory}'")
 
     lines = get_characters(
-        text_file_or_list=file_or_list, directory=output_dir, clobber=clobber
+        text_file_or_list=file_or_list,
+        directory=output_dir,
+        clobber=(clobber if clobber != None else False),
     )
 
     if not lines:
@@ -273,12 +277,15 @@ def main(
         image_font = font
     else:
         image_font = get_font(
-            lines=lines, canvas_size=canvas_size, padding=pad, font_name=font
+            lines=lines,
+            canvas_size=canvas_size,
+            padding=pad,
+            font_name=(font or default_font),
         )
 
-    background_color = getrgb(color=background)
+    background_color = getrgb(color=(background or default_background))
 
-    fill_color = getrgb(color=text_color)
+    fill_color = getrgb(color=(text_color or default_text_color))
 
     for text in lines:
         generate_png(
@@ -289,7 +296,7 @@ def main(
             background=background_color,
             fill_color=fill_color,
         ).save(
-            fp=assign_path(text=text, dir=output_dir), format="PNG",
+            fp=assign_path(text=text, dir=output_directory), format="PNG",
         )
 
     return [output_directory / (f"{line}.png") for line in lines]

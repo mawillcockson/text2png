@@ -1,6 +1,5 @@
 [packages]
 pillow = "*"
-invoke = "*"
 matplotlib = "*"
 
 [dev-packages]
