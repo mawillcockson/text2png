@@ -31,7 +31,7 @@ class Position(NamedTuple):
     y: Num
 
 
-default_font = "KanjiStrokeOrders"
+default_font = "sans-serif"
 default_output_dir = Path("./output")
 default_canvas_size = Size(1024, 1024)
 default_padding = 0.10
